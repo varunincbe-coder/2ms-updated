@@ -68,16 +68,21 @@ func hasNoResults(report *Report) bool {
 	return len(report.Results) == 0
 }
 
-func createMessageText(ruleName, filePath string) string {
-	// maintain only the filename if the scan target is git
-	if strings.HasPrefix(filePath, "git show ") {
-		filePathParts := strings.SplitN(filePath, ":", 2)
-		if len(filePathParts) == 2 {
-			filePath = filePathParts[1]
+// getFilePath strips the "git show <commit>:" prefix used by the git plugin so that
+// the value is a valid repository-relative path. This is required for SARIF ingestion
+// by GitHub Code Scanning, which rejects URIs containing ":" in the first path segment.
+func getFilePath(source string) string {
+	if strings.HasPrefix(source, "git show ") {
+		parts := strings.SplitN(source, ":", 2)
+		if len(parts) == 2 {
+			return parts[1]
 		}
 	}
+	return source
+}
 
-	return fmt.Sprintf("%s has detected secret for file %s.", ruleName, filePath)
+func createMessageText(ruleName, filePath string) string {
+	return fmt.Sprintf("%s has detected secret for file %s.", ruleName, getFilePath(filePath))
 }
 
 func getResults(report *Report) []Results {
@@ -113,7 +118,7 @@ func getLocation(secret *secrets.Secret) []Locations {
 		{
 			PhysicalLocation: PhysicalLocation{
 				ArtifactLocation: ArtifactLocation{
-					URI: secret.Source,
+					URI: getFilePath(secret.Source),
 				},
 				Region: Region{
 					StartLine:   secret.StartLine,
