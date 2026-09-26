@@ -12,6 +12,10 @@ jobs:
 
     runs-on: ${{ matrix.os }}
 
+    permissions:
+      contents: read
+      security-events: write
+
     steps:
       - name: Checkout code
         uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
@@ -37,7 +41,15 @@ jobs:
         run: go test -v ./...
 
       - name: Run 2ms Scan
-        run: go run . git . --config .2ms.yml
+        run: |
+          mkdir -p output
+          go run . git . --config .2ms.yml --report-path output/results.sarif --ignore-on-exit results
+
+      - name: Upload 2ms SARIF
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: output/results.sarif
 
   build:
     runs-on: cx-public-ubuntu-x64
